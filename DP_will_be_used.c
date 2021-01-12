@@ -2,7 +2,7 @@
 #include<stdlib.h>
 //#include"instances2.h"
 // dist[49][49] nmbr_cities
-int nmbr_cities=16;
+int nmbr_cities=10;
 int dist[16][16]={
 {0,633,257,91,412,150,80,134,259,505,353,324,70,211,268,246},
 {633,0,390,661,227,488,572,530,555,289,282,638,567,466,420,745},
@@ -33,8 +33,8 @@ int is_in_table(int ele, int *T){
 int min(int a, int b){
 	return (a<b)?a:b;
 }
-int minTab(int *T){
-	int i, lenght=sizeof(*T);
+int minTab(int *T, int lenght){
+	int i;
 	if(lenght){
 		int minimum=T[0];
 		for(i=1; i<lenght; i++)
@@ -46,82 +46,91 @@ int minTab(int *T){
 		exit(-2);
 	}
 }
-void del_ele_table(int **T, int ele){
-	int i,j,lenght=sizeof(**T);
-	for(i=0; i<lenght; i++){
+void del_ele_table(int **T, int ele, int* lenght){
+	int i,j;
+	for(i=0; i<*lenght; i++){
 		if(ele==(*T)[i]){
-			for(j=i; j<lenght-1; j++)
+			for(j=i; j<*lenght-1; j++)
 				(*T)[j]=(*T)[j+1];
-			(*T)=(int*)realloc(*T, lenght-1);
+			(*T)=(int*)realloc(*T, ((*lenght)-1)*sizeof(int));
+			(*lenght)--;
+			break;
 		}
 	}
 }
 int* createTable(int upBound, int exclu){
 	int i,k,*T;
-	T=(int*)malloc(upBound-1);
+	T=(int*)malloc((upBound-1)*sizeof(int));
 	for(i=k=0; i<upBound; i++)
 		if(i!=exclu)
 			T[k++]=i;
 	return T;
 }
-void insertElementInFirst(int **T, int ele){
-	int i,lenght=sizeof(**T)/sizeof(int);
-	(*T)=(int*)realloc(*T, lenght+1);
-	for(i=lenght; i>0; i--)
-		(*T)[i]=(*T)[i-1];
+void insertElementInFirst(int **T, int ele, int* length){
+	if(*length){
+		int i;
+		(*T)=(int*)realloc(*T, ((*length)+1)*sizeof(int));
+		for(i=(*length); i>0; i--)
+			(*T)[i]=(*T)[i-1];
+	}else (*T)=(int*)malloc(sizeof(int));
 	(*T)[0]=ele;
+	++*length;
 }
-int* addInitialPointToPath(int *T, int init_point){
-	insertElementInFirst(&T, init_point);
-	int lenght=sizeof(*T)/sizeof(int);
-	T=(int*)realloc(T, lenght+1);
-	T[lenght]=init_point;
-	return T;
+void addInitialPointToPath(int **T, int init_point, int *lenght){
+	insertElementInFirst(T, init_point, lenght);
+	(*T)=(int*)realloc(*T, ((*lenght)+1)*sizeof(int));
+	(*T)[*lenght]=init_point;
 }
 //fonction principale
-int *l_cout, *avant_dernier_ville;
-int rec_tsp_solve(int vv_cible, int **vvilles_inter){
+int l_cout, avant_dernier_ville;
+int* getLcout(){
+	return &l_cout;
+}
+int* getAvantDernierVille(){
+	return &avant_dernier_ville;
+}
+#define l_cout (*getLcout())
+#define avant_dernier_ville (*getAvantDernierVille())
+int rec_tsp_solve(int vv_cible, int **vvilles_inter, int *villes_inter_length){
 	if(is_in_table(vv_cible, *vvilles_inter)){
 		printf("vv_cible not in vvilles_inter");
 		exit(1);
 	}
-	if(sizeof(**vvilles_inter)){
-		int i,lenght=sizeof(**vvilles_inter)/sizeof(int);
+	if(*villes_inter_length){
+		int i,lenght=*villes_inter_length;
 		int tmpTab[lenght];
 		for(i=0; i<lenght; i++){
-			del_ele_table(vvilles_inter, i);
-			printf("%d ",__LINE__);
-			tmpTab[i]=dist[i][vv_cible]+rec_tsp_solve(i,vvilles_inter);
-			//tmpTab[i]=*(dist+i*nmbr_cities+vv_cible)+rec_tsp_solve(i,vvilles_inter);
-			// dist[i][vv_cible]
-			return minTab(tmpTab);
+			del_ele_table(vvilles_inter, i, villes_inter_length);
+			printf("%d ", __LINE__);
+			tmpTab[i]=dist[i][vv_cible]+rec_tsp_solve(i, vvilles_inter, villes_inter_length);
+			printf("%d ", __LINE__);
+			//tmpTab[i]=*(dist+i*nmbr_cities+vv_cible)+rec_tsp_solve(i, vvilles_inter, villes_inter_length);
 		}
+		l_cout=minTab(tmpTab, lenght);
 	}else{
-		*l_cout=dist[0][vv_cible];
-		*avant_dernier_ville=vv_cible;
-		return *l_cout;
+		l_cout=dist[0][vv_cible];
+		avant_dernier_ville=vv_cible;
 	}
+	return l_cout;
 }
 
-void tsp_rec_solve(int **cout, int nb_villes, int v_cible){
-	int *meilleur_tour, taille_cout=nb_villes;
+void tsp_rec_solve(int nb_villes, int v_cible){
+	int *meilleur_tour, taille_cout=nb_villes, meilleur_tour_length=0;
 	int *villes_inter=createTable(taille_cout, v_cible);
 	int i=0;
 	int cout_optimal=-1;
-	printf(" %d ",__LINE__);
+	int villes_inter_length=taille_cout-1;
 	while(1){
-		rec_tsp_solve(v_cible, &villes_inter);
-		if(cout_optimal==-1) cout_optimal=*l_cout;
-		if(*avant_dernier_ville == v_cible)
-			break;
-		insertElementInFirst(&meilleur_tour, *avant_dernier_ville);
-		del_ele_table(&villes_inter, *avant_dernier_ville);
+		rec_tsp_solve(v_cible, &villes_inter, &villes_inter_length);
+		if(cout_optimal==-1) cout_optimal=l_cout;
+		if(avant_dernier_ville == v_cible) break;
+		insertElementInFirst(&meilleur_tour, avant_dernier_ville, &meilleur_tour_length);
+		del_ele_table(&villes_inter, avant_dernier_ville, &villes_inter_length);
 	}
-	meilleur_tour=addInitialPointToPath(meilleur_tour, v_cible);
-	int lenght=sizeof(*meilleur_tour)/sizeof(int);
+	addInitialPointToPath(&meilleur_tour, v_cible, &meilleur_tour_length);
 	printf("le tour est: ");
-	for(i=0;i<lenght;i++) printf("%d->",meilleur_tour[i]);
-	printf("\nle cout est: %d", *l_cout);
+	for(i=0;i<meilleur_tour_length;i++) printf("%d->",meilleur_tour[i]);
+	printf("\nle cout est: %d", l_cout);
 }
 
 // matrix[x][y] == matrix + x*Column + y
@@ -134,5 +143,5 @@ void main(){
 //	free(T);
 //	printf("\n");
 //	for(i=0;i<4;i++) printf("%d ",T[i]);
-	tsp_rec_solve((int**)dist, nmbr_cities, 0);
+	tsp_rec_solve(nmbr_cities, 0);
 }
